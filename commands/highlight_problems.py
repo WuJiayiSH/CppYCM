@@ -74,19 +74,51 @@ class CppycmHighlightProblemsCommand(sublime_plugin.WindowCommand):
         self.output_panel.run_command('select_all')
         self.output_panel.run_command('right_delete')
         for problem in problems:
-            lineno = problem['location']['line_num']
-            colno = problem['location']['column_num']
-            line_regions = view_cache.setdefault(lineno - 1, {})
-            message = MsgTemplates.ERROR_MESSAGE_TEMPLATE.format(**problem)
-            problem_output = MsgTemplates.PRINT_ERROR_MESSAGE_TEMPLATE.format(
-                message, lineno, colno)
-            self.output_panel.run_command(
-                'insert', {'characters': problem_output}
-            )
+            if problem['kind'] != 'ERROR':
+                lineno = problem['location']['line_num']
+                colno = problem['location']['column_num']
+                line_regions = view_cache.setdefault(lineno - 1, {})
+                message = MsgTemplates.ERROR_MESSAGE_TEMPLATE.format(**problem)
+                problem_output = MsgTemplates.PRINT_ERROR_MESSAGE_TEMPLATE.format(
+                    message, lineno, colno)
+                self.output_panel.run_command(
+                    'insert', {'characters': problem_output}
+                )
 
-            region = view.word(view.text_point(lineno - 1, colno - 1))
-            regions.append(region)
-            line_regions[(region.a, region.b)] = message
+                region = view.word(view.text_point(lineno - 1, colno - 1))
+                regions.append(region)
+                line_regions[(region.a, region.b)] = message
+        style = (sublime.DRAW_NO_FILL | sublime.DRAW_NO_OUTLINE |
+                 sublime.DRAW_SQUIGGLY_UNDERLINE)
+        view.add_regions(
+            key='clang-code-warnings',
+            regions=regions,
+            scope='string',
+            icon='bookmark',
+            flags=style)
+        
+        regions = []
+        for problem in problems:
+            if problem['kind'] == 'ERROR':
+                lineno = problem['location']['line_num']
+                colno = problem['location']['column_num']
+                line_regions = view_cache.setdefault(lineno - 1, {})
+                message = MsgTemplates.ERROR_MESSAGE_TEMPLATE.format(**problem)
+                problem_output = MsgTemplates.PRINT_ERROR_MESSAGE_TEMPLATE.format(
+                    message, lineno, colno)
+                self.output_panel.run_command(
+                    'insert', {'characters': problem_output}
+                )
+
+                region = view.word(view.text_point(lineno - 1, colno - 1))
+                regions.append(region)
+                line_regions[(region.a, region.b)] = message
+        view.add_regions(
+            key='clang-code-errors',
+            regions=regions,
+            scope='invalid',
+            icon='dot',
+            flags=style)
 
         self.output_panel.set_read_only(True)
         self.output_panel.run_command(
@@ -95,10 +127,4 @@ class CppycmHighlightProblemsCommand(sublime_plugin.WindowCommand):
             self.window.run_command(
                 'show_panel', {'panel': self.output_panel_name})
         # self.view_cache[view_id] = view_cache
-        style = (sublime.DRAW_NO_FILL | sublime.DRAW_NO_OUTLINE |
-                 sublime.DRAW_SQUIGGLY_UNDERLINE)
-        view.add_regions(
-            key='clang-code-errors',
-            regions=regions,
-            scope='invalid',
-            flags=style)
+        
